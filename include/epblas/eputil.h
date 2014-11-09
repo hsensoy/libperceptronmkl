@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "debug.h"
+#include "util.h"
 #include <sys/time.h>
 #include <time.h>
 

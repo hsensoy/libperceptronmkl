@@ -403,4 +403,61 @@ eparseError_t dot(Vector_t x, Vector_t y, float *result){
 
 }
 
+eparseError_t mtrxcolcpy(Matrix_t *dst, memoryAllocationDevice_t device,
+        const Matrix_t src, const char *new_id, long offsetcol, long ncol) { 
+    if (src == NULL) {
+        return eparseNullPointer;
+    } else {
+		check( ncol > 0, "Number of columns to be copied (ncol) should be positive");
+		check( offsetcol >= 0 && offsetcol < src->ncol , "Column offset (offsetcol) should be between [0, # of columns source)");
+		
+        EPARSE_CHECK_RETURN(
+                newInitializedMatrix(dst, device, (new_id == NULL) ? (src->identifier) : new_id, src->nrow, MIN(src->ncol,ncol), matrixInitNone, NULL, NULL))
+
+		memcpy((*dst)->data, src->data + (offsetcol * src->nrow), MIN(src->ncol,ncol) * src->nrow * sizeof(float));
+
+        return eparseSucess;
+    }	
+	
+	error:
+	return eparseFailOthers;
+}
+
+eparseError_t vappend(Vector_t *v, memoryAllocationDevice_t device, const char* id, float value){
+	
+    long copy_bytes = sizeof(float) * 1;
+    long offset = 0;
+
+    if (*v == NULL) {
+        offset = 0;
+			
+		newVector(v, device, id, 1)
+			
+		float temp = value;
+			
+        memcpy((*v)->data, &temp, copy_bytes);
+        
+    } else {
+    	check((*v)->dev == device, "You can not change memory type of %s from %d to %d", (*v)->identifier, (*v)->dev,  device);
+    	
+        offset = (*v)->n;
+
+
+		(*v)->nrow += 1;
+    		
+        EPARSE_CHECK_RETURN(ensureMatrixCapacity((*v), (*v)->n + 1))
+
+        
+		float temp = value;
+		
+        memcpy((*v)->data + offset, &temp, copy_bytes);
+        
+    	(*v)->n += 1;
+    }
+
+    return eparseSucess;
+error:
+	return eparseMemoryAllocationError;	
+}
+
 

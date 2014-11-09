@@ -1,5 +1,7 @@
 #include "kernelperceptron.h"
 
+#define BATCH_SIZE 800	//Given that majority of the sentences are shorter than 40 words.
+
 /**
 * Create a new kernel structure
 *
@@ -34,6 +36,14 @@ static KernelPerceptron_t newKernelPerceptron(enum KernelType kerneltype) {
 
     kp->kerneltype = kerneltype;
     kp->c = 1;
+	
+    kp->t_instBatch = NULL;
+    kp->t_yBatch = NULL;
+	kp->t_yPowerBatch = NULL;
+	kp->t_result = NULL;
+	kp->t_y = NULL;
+	kp->t_yPower = NULL;
+ 	kp->t_inst = NULL;
 
     return kp;
 	    
@@ -71,6 +81,15 @@ eparseError_t deleteKernelPerceptron(KernelPerceptron_t kp) {
 
     deleteKernel(kp->kernel);
     deleteKernel(kp->best_kernel);
+	
+    deleteMatrix( kp->t_instBatch);
+    deleteMatrix( kp->t_yBatch);
+	deleteMatrix( kp->t_yPowerBatch);
+	deleteVector( kp->t_result );
+
+	deleteVector ( kp->t_y);
+	deleteVector ( kp->t_yPower);
+	deleteVector ( kp->t_inst); 
 
     if (kp->kerneltype == POLYNOMIAL_KERNEL)
         deletePolynomialKernelPerceptron((PolynomialKernelPerceptron_t) kp->pDerivedObj);
@@ -95,17 +114,10 @@ eparseError_t updateKernelPerceptron(KernelPerceptron_t kp, Vector_t sv, long sv
         }
         else if (svidx == kp->kernel->matrix->ncol) {
 
-            float init = change;
-
-            newInitializedCPUVector(&v, "temp v", 1, matrixInitFixed, &init, NULL)
-
             EPARSE_CHECK_RETURN(hstack(&(kp->kernel->matrix), memoryCPU, "kernel matrix", sv, false, false))
-            EPARSE_CHECK_RETURN(vstackMatrix(&(kp->kernel->alpha), memoryCPU, "alpha vector", v, true, false))
-
-            init = change * kp->c;
-            newInitializedCPUVector(&v, "temp v", 1, matrixInitFixed, &init, NULL)
-
-            EPARSE_CHECK_RETURN(vstackMatrix(&(kp->kernel->beta), memoryCPU, "beta vector", v, true, false))
+				
+			EPARSE_CHECK_RETURN(vappend(&(kp->kernel->alpha), memoryCPU, "alpha vector", change))
+			EPARSE_CHECK_RETURN(vappend(&(kp->kernel->beta), memoryCPU, "beta vector", change * kp->c))
 
             return eparseSucess;
         }
@@ -116,62 +128,68 @@ eparseError_t updateKernelPerceptron(KernelPerceptron_t kp, Vector_t sv, long sv
         }
     }
     else {
-        float init = change;
-
-        newInitializedCPUVector(&v, "temp v", 1, matrixInitFixed, &init, NULL)
-
         EPARSE_CHECK_RETURN(hstack(&(kp->kernel->matrix), memoryCPU, "kernel matrix", sv, false, false))
-        EPARSE_CHECK_RETURN(vstackMatrix(&(kp->kernel->alpha), memoryCPU, "alpha vector", v, true, false))
-
-        init = change * kp->c;
-        newInitializedCPUVector(&v, "temp v", 1, matrixInitFixed, &init, NULL)
-
-        EPARSE_CHECK_RETURN(vstackMatrix(&(kp->kernel->beta), memoryCPU, "beta vector", v, true, false))
+        
+		EPARSE_CHECK_RETURN(vappend(&(kp->kernel->alpha), memoryCPU, "alpha vector", change))
+		EPARSE_CHECK_RETURN(vappend(&(kp->kernel->beta), memoryCPU, "beta vector", change * kp->c))
 
         return eparseSucess;
     }
 }
 
 
-
-
-
-static Matrix_t Y = NULL;
-static Matrix_t YPower = NULL;
-static Vector_t result = NULL;
-
 eparseError_t scoreBatchKernelPerceptron(KernelPerceptron_t kp, Matrix_t instarr, bool avg, Vector_t *result) {
 
     check(instarr != NULL, "instarr should be initialized");
 	
     float zero = 0;
-    newInitializedCPUVector(result, "result", instarr->nrow, matrixInitFixed, &zero, NULL)
 
     Matrix_t kernel_matrix = kp->kernel->matrix;
     if (kernel_matrix != NULL) {
         if (kp->kerneltype == POLYNOMIAL_KERNEL) {
 
             PolynomialKernelPerceptron_t pkp = (PolynomialKernelPerceptron_t) kp->pDerivedObj;
+			
+			//log_info("so");
+			newInitializedCPUVector(result, "result",instarr->ncol, matrixInitNone, NULL, NULL)
+			
+			long nleft = instarr->ncol;
+			long offset = 0;
+			
+			while(nleft > 0){
+				//log_info("%ld col left", nleft);
+				
+				EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&(kp->t_yBatch), "t_yBatch", kernel_matrix->ncol, MIN(nleft, BATCH_SIZE), matrixInitFixed, &(pkp->bias), NULL))
+				EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&(kp->t_yPowerBatch), "t_yBatch", kernel_matrix->ncol, MIN(nleft, BATCH_SIZE), matrixInitFixed, &(pkp->bias), NULL))
+				
 
 
-            EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&Y, "Y", kernel_matrix->ncol, instarr->ncol, matrixInitFixed, &(pkp->bias), NULL))
+				EPARSE_CHECK_RETURN(mtrxcolcpy(&(kp->t_instBatch), memoryCPU, instarr, "t_instBatch", offset, MIN(nleft, BATCH_SIZE)))
+				EPARSE_CHECK_RETURN(prodMatrixMatrix(kernel_matrix, true, kp->t_instBatch, kp->t_yBatch))
+				
+				EPARSE_CHECK_RETURN(powerMatrix(kp->t_yBatch, pkp->power, kp->t_yPowerBatch))
+        
+        
+		        newInitializedCPUVector(&(kp->t_result), "t_result", MIN(nleft, BATCH_SIZE), matrixInitNone, NULL, NULL)
 
-            EPARSE_CHECK_RETURN(prodMatrixMatrix(kernel_matrix, true, instarr, Y))
 
-            EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&YPower, "Y Power", kernel_matrix->ncol, instarr->ncol, matrixInitNone, NULL, NULL))
+		        if (avg) 
+		        	EPARSE_CHECK_RETURN(prodMatrixVector(kp->t_yPowerBatch, true, kp->kernel->alpha_avg, kp->t_result))
+		        else 
+		        	EPARSE_CHECK_RETURN(prodMatrixVector(kp->t_yPowerBatch, true, kp->kernel->alpha, kp->t_result))
+							
+				memcpy( (*result)->data + offset, kp->t_result->data, MIN(nleft, BATCH_SIZE) * sizeof(float));
 
-            EPARSE_CHECK_RETURN(powerMatrix(Y, pkp->power, YPower))
+				
+				offset +=  MIN(nleft, BATCH_SIZE);
+				nleft -= MIN(nleft, BATCH_SIZE);
+			}
+					
         } else 
 			return eparseKernelType;
-
-        newInitializedCPUVector(result, "t_result", instarr->ncol, matrixInitNone, NULL, NULL)
-
-
-        if (avg) 
-			EPARSE_CHECK_RETURN(prodMatrixVector(YPower, true, kp->kernel->alpha_avg, *result))
-        else 
-			EPARSE_CHECK_RETURN(prodMatrixVector(YPower, true, kp->kernel->alpha, *result))
-    }
+					
+    }else
+    	newInitializedCPUVector(result, "result", instarr->ncol,  matrixInitFixed, &zero, NULL)
 
 
     return eparseSucess;
@@ -181,8 +199,6 @@ error:
 
 }
 
-static Vector_t y = NULL;
-static Vector_t yPower = NULL;
 
 eparseError_t scoreKernelPerceptron(KernelPerceptron_t kp, Vector_t inst, bool avg, float *s) {
     *s = 0.0;
@@ -193,21 +209,21 @@ eparseError_t scoreKernelPerceptron(KernelPerceptron_t kp, Vector_t inst, bool a
 
             PolynomialKernelPerceptron_t pkp = (PolynomialKernelPerceptron_t) kp->pDerivedObj;
 
-            newInitializedCPUVector(&y, "y", kernel_matrix->ncol, matrixInitFixed, &(pkp->bias), NULL)
+            newInitializedCPUVector(&(kp->t_y), "t_y", kernel_matrix->ncol, matrixInitFixed, &(pkp->bias), NULL)
 
-            EPARSE_CHECK_RETURN(prodMatrixVector(kernel_matrix, true, inst, y))
-
-            newInitializedCPUVector(&yPower, "y Power", kernel_matrix->ncol, matrixInitNone, NULL, NULL)
-
-            EPARSE_CHECK_RETURN(powerMatrix(y, pkp->power, yPower))
+	        EPARSE_CHECK_RETURN(prodMatrixVector(kernel_matrix, true, inst, kp->t_y))
+		
+			newInitializedCPUVector(&(kp->t_yPower), "t_yPower", kernel_matrix->ncol, matrixInitNone, NULL, NULL)
+				
+            EPARSE_CHECK_RETURN(powerMatrix(kp->t_y, pkp->power, kp->t_yPower))
         } else 
 			return eparseKernelType;
 
 
         if (avg)
-            EPARSE_CHECK_RETURN(dot(kp->kernel->alpha_avg, yPower, s))
+            EPARSE_CHECK_RETURN(dot(kp->kernel->alpha_avg, kp->t_yPower, s))
         else
-            EPARSE_CHECK_RETURN(dot(kp->kernel->alpha, yPower, s))
+            EPARSE_CHECK_RETURN(dot(kp->kernel->alpha, kp->t_yPower, s))
     }
 
     return eparseSucess;
@@ -317,7 +333,7 @@ eparseError_t loadKernelPerceptron(FILE *fp, void **kp){
 
     model->kernel->matrix = NULL;
 
-    EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&(model->kernel->matrix), "kernel matrix", nsv, edim, matrixInitNone, NULL , NULL))
+    EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&(model->kernel->matrix), "kernel matrix", edim, nsv, matrixInitNone, NULL , NULL))
 
     long real_lidx;
     for (long i = 0; i < model->kernel->matrix->n; i++) {

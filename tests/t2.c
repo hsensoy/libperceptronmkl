@@ -2,9 +2,8 @@
 #include <stdlib.h>
 #include "perceptron.h"
 #include "debug.h"
-#include "util.h"
 
-#define NSENTENCE 100
+#define NSENTENCE 10000
 #define AVG_SENTENCE_LENGTH 20
 #define XFORMED_EMBEDDING_LENGTH 720
 
@@ -21,13 +20,14 @@ void succesiveUpdatandScore() {
     newInitializedCPUVector(&v, "vector", XFORMED_EMBEDDING_LENGTH, matrixInitFixed, &somevalue, NULL);
 
 
+    log_info("Allocation is done");
 	Progress_t ptested = NULL;
 	CHECK_RETURN(newProgress(&ptested, "test sentences", NSENTENCE, 0.1))
 	
-	EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&vBatch, "arc matrix", XFORMED_EMBEDDING_LENGTH, AVG_SENTENCE_LENGTH * AVG_SENTENCE_LENGTH, matrixInitNone, NULL,NULL))
+	EPARSE_CHECK_RETURN(newInitializedCPUMatrix(&vBatch, "arc matrix", AVG_SENTENCE_LENGTH * AVG_SENTENCE_LENGTH, XFORMED_EMBEDDING_LENGTH, matrixInitNone, NULL,NULL))
 	
     for (int j = 0; j < AVG_SENTENCE_LENGTH * AVG_SENTENCE_LENGTH; j++)
-		memcpy((vBatch->data) + j * XFORMED_EMBEDDING_LENGTH, v, sizeof(float) * v->n);
+		memcpy(vBatch->data +  j * XFORMED_EMBEDDING_LENGTH, v->data, sizeof(float) * v->n);
 	
 	int hvidx = 0;
     for (int i = 0; i < NSENTENCE; i++) {
