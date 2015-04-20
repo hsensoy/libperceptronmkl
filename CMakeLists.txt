@@ -26,7 +26,7 @@ SET (${PROJ_NAME}_VERSION_MINOR 1)
 
 INCLUDE_DIRECTORIES( ${PROJ_INCLUDES} )
 
-ADD_LIBRARY( ${PROJ_NAME} SHARED ${PROJ_SOURCES} )
+ADD_LIBRARY( ${PROJ_NAME} SHARED ${PROJ_SOURCES})
 
 
 #LINK_DIRECTORIES( "/Users/husnusensoy/NetBeansProjects/ai-parse/epblas/build" )
@@ -47,7 +47,12 @@ SET ( PROJ_TESTS
    "tRectangularMatrixMatrixProductTransposeWithSizingError"
    "tSquareMatrixMatrixProduct"
    "tdotprod"
-   "tmatrixvectorprod" )
+   "tmatrixvectorprod"
+    "tSimplePerceptronwithRBFSampler"
+    "tPerceptronUpdate"
+    "tPerceptronUpdatewithRBFSampler"
+    "tPerceptronBatchScorewithRBFSampler"
+    "tPerceptronBatchScorewithRBFSamplerToyProblem")
 
 foreach( t ${PROJ_TESTS} )
        add_executable( test_${PROJ_NAME}_${t} tests/${t}.c)
@@ -58,7 +63,7 @@ foreach( t ${PROJ_TESTS} )
 endforeach(t)
 
 install(TARGETS ${PROJ_NAME} DESTINATION lib/${PROJ_NAME})
-install(FILES include/perceptron_common.h include/perceptron.h DESTINATION include/perceptron)
+install(FILES include/perceptron_common.h include/perceptron.h include/featuretransform.h DESTINATION include/perceptron)
 install(FILES include/epblas/eputil.h include/epblas/epblas.h DESTINATION include/perceptron/epblas)
 
 

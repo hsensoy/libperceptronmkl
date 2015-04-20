@@ -2,6 +2,9 @@
 _build
 build
 
+# CLion directory
+.idea
+
 # Archive directory
 *.zip
 *.tar

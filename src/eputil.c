@@ -12,7 +12,8 @@ const char* eparseErrorString[] = {"Success",
 									"Error in loading Kernel Perceptron model from file"
 									"Error in dumping Kernel Perceptron model into file.",
 									"Cuda operation can not fit into available GPU memory",
-									"Feature is not available yet"
+									"Feature is not available yet",
+								   "Intel MKL Error: Check MKL error string for more details."
 								};
 								
 const char* eparseGetErrorString(eparseError_t status) {
