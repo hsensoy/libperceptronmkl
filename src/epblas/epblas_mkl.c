@@ -25,16 +25,23 @@ void printMatrix(const char* heading, Matrix_t m, FILE *fp) {
 	if (fp != NULL) {
 		if (heading != NULL)
 			fprintf(fp, "%s\n", heading);
-		for (r = 0; r < m->nrow; r++) {
-			for (c = 0; c < m->ncol; c++) {
-				fprintf(fp, "%f", m->data[r * m->ncol + c]);
+		for (r = 0; r < MIN(m->nrow,10); r++) {
+			for (c = 0; c < MIN(m->ncol,10); c++) {
+				fprintf(fp, "%f", m->data[c * m->nrow + r]);
 				if (c < m->ncol - 1)
 					fprintf(fp, "\t");
 			}
-			fprintf(fp, "\n");
+
+			if (m->ncol > 10)
+				fprintf(fp, "...\n");
+			else
+				fprintf(fp, "\n");
 		}
 
-		fprintf(fp, "\n");
+		if (m->nrow > 10)
+			fprintf(fp, "...\n");
+		else
+			fprintf(fp, "\n");
 	}
 }
 
@@ -386,6 +393,26 @@ eparseError_t powerMatrix(Matrix_t x, int power, Matrix_t y){
 	
 	return eparseSucess;
 		
+}
+
+eparseError_t CosSinMatrix(Matrix_t x, Matrix_t y){
+	if( !(2 * x->nrow == y->nrow && x->ncol == y->ncol)){
+		log_err( "x(%ldx%ld) and y(%ldx%ld) does not conform", x->nrow,x->ncol, y->nrow, y->ncol);
+		return eparseColumnNumberMissmatch;
+	}
+
+	//vmsSinCos( x->n, x->data, y->data + x->n, y->data, VML_EP | VML_FTZDAZ_OFF | VML_ERRMODE_DEFAULT  );
+
+	for (int i = 0; i < x->n; i+=x->nrow) {
+
+		vmsCos(x->nrow,x->data+i,y->data+2*i, VML_EP | VML_FTZDAZ_OFF | VML_ERRMODE_DEFAULT );
+		vmsSin(x->nrow,x->data+i,y->data+2*i+x->nrow, VML_EP | VML_FTZDAZ_OFF | VML_ERRMODE_DEFAULT );
+
+	}
+
+	return eparseSucess;
+
+
 }
 
 eparseError_t dot(Vector_t x, Vector_t y, float *result){
