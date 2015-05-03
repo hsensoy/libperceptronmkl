@@ -51,6 +51,8 @@ eparseError_t scoreSimplePerceptron(SimplePerceptron_t kp, Vector_t inst, bool a
             EPARSE_CHECK_RETURN(dot(kp->w, inst, s))
         }
     }
+    
+    return eparseSucess;
 }
 
 

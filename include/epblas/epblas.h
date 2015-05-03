@@ -131,6 +131,10 @@ eparseError_t hstack(Matrix_t *m1, memoryAllocationDevice_t device, const char* 
 
 
 eparseError_t vappend(Vector_t *v, memoryAllocationDevice_t device, const char* id, float value);
+eparseError_t vappend_array(Vector_t *v, memoryAllocationDevice_t device, const char* id, long n, float *arr);
+eparseError_t vappend_vector(Vector_t *v, memoryAllocationDevice_t device, const char* id, const Vector_t in);
+
+bool vequal(const Vector_t v1, const Vector_t v2);
 
 
 void printMatrix(const char* heading, Matrix_t m, FILE *fp);

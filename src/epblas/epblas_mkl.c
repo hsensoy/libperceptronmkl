@@ -465,7 +465,7 @@ eparseError_t vappend(Vector_t *v, memoryAllocationDevice_t device, const char* 
         memcpy((*v)->data, &temp, copy_bytes);
         
     } else {
-    	check((*v)->dev == device, "You can not change memory type of %s from %d to %d", (*v)->identifier, (*v)->dev,  device);
+    	check((*v)->dev == device && device == memoryCPU, "You can not change memory type of %s from %d to %d", (*v)->identifier, (*v)->dev,  device);
     	
         offset = (*v)->n;
 
@@ -485,6 +485,95 @@ eparseError_t vappend(Vector_t *v, memoryAllocationDevice_t device, const char* 
     return eparseSucess;
 error:
 	return eparseMemoryAllocationError;	
+}
+
+eparseError_t vappend_array(Vector_t *v, memoryAllocationDevice_t device, const char* id, long n, float *arr){
+	
+    check(n > 0, "Number of elements to be appended should be positive whereas %ld found", n);
+    long copy_bytes = sizeof(float) * n;
+    long offset = 0;
+
+    if (*v == NULL) {
+        offset = 0;
+			
+		newVector(v, device, id, n)
+            			
+        memcpy((*v)->data, arr, copy_bytes);
+        
+    } else {
+    	check((*v)->dev == device && device == memoryCPU, "You can not change memory type of %s from %d to %d", (*v)->identifier, (*v)->dev,  device);
+    	
+        offset = (*v)->n;
+
+
+		(*v)->nrow += n;
+    		
+        EPARSE_CHECK_RETURN(ensureMatrixCapacity((*v), (*v)->n + n))
+
+        
+		
+        memcpy((*v)->data + offset, arr, copy_bytes);
+        
+    	(*v)->n += n;
+    }
+
+    return eparseSucess;
+error:
+	return eparseMemoryAllocationError;	
+}
+
+eparseError_t vappend_vector(Vector_t *v, memoryAllocationDevice_t device, const char* id, const Vector_t in){
+    
+    check( in != NULL, "in vector is not initialized");
+    
+    long copy_bytes = sizeof(float) * in->n;
+    long offset = 0;
+
+    if (*v == NULL) {
+        offset = 0;
+        
+        EPARSE_CHECK_RETURN(cloneVector(v, device, in, id ))
+        
+    } else {
+    	check((*v)->dev == device && device == memoryCPU, "You can not change memory type of %s from %d to %d", (*v)->identifier, (*v)->dev,  device);
+    	
+        offset = (*v)->n;
+
+
+		(*v)->nrow += in->nrow;
+    		
+        EPARSE_CHECK_RETURN(ensureMatrixCapacity((*v), (*v)->n + in->n))
+
+        
+        memcpy((*v)->data + offset, in->data, copy_bytes);
+        
+    	(*v)->n += in->n;
+    }
+
+    return eparseSucess;
+error:
+	return eparseMemoryAllocationError;	
+    
+}
+
+bool vequal(const Vector_t v1, const Vector_t v2){
+    
+    check(v1->dev == memoryCPU && v2->dev == memoryCPU, "Both vectors should be on CPU memory");
+    
+    if (v1 == v2)    
+        return true;
+
+    check(v1 != NULL && v2 != NULL, "One of the vectors is uninitialized.");
+    check(v1->n == v2->n,"Number of elements v1(%ld) and v2(%ld) do not match",v1->n,v2->n);
+    
+    for(long i = 0; i < v1->n; ++i)
+    {
+        check( (v1->data)[i] == (v2->data)[i],"Elements at position %ld does not match in v1(%f) and v2(%f)",i,(v1->data)[i], (v2->data)[i] );
+    }
+    
+    return true;
+    error:
+    return false;
 }
 
 
